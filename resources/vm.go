@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 )
 
 func GetInstances(service *compute.Service, projectID string) ([]string, error) {
@@ -69,7 +70,7 @@ func CreateInstance(service *compute.Service, projectID, instanceName, zone, mac
 		return fmt.Errorf("failed to create instance: %v", err)
 	}
 
-	waitVMOperation(service, projectID, zone, op.Name, "creating")
+	waitZoneOperation(service, projectID, zone, op.Name, "creating")
 	fmt.Printf("Instance %s created successfully!\n", instanceName)
 	return nil
 }
@@ -83,7 +84,7 @@ func DeleteInstance(service *compute.Service, projectID, instanceName, zone stri
 		return fmt.Errorf("failed to delete instance: %v", err)
 	}
 
-	waitVMOperation(service, projectID, zone, op.Name, "deleting")
+	waitZoneOperation(service, projectID, zone, op.Name, "deleting")
 	fmt.Printf("Instance %s deleted successfully!\n", instanceName)
 	return nil
 }
@@ -98,31 +99,127 @@ func ChangeInstanceState(service *compute.Service, projectID, zone, instanceName
 		if err != nil {
 			return err
 		}
-		return waitVMOperation(service, projectID, zone, opr.Name, state+"ing")
+		return waitZoneOperation(service, projectID, zone, opr.Name, state+"ing")
 
 	case "STOP":
 		opr, err := service.Instances.Stop(projectID, zone, instanceName).Do()
 		if err != nil {
 			return err
 		}
-		return waitVMOperation(service, projectID, zone, opr.Name, state+"ing")
+		return waitZoneOperation(service, projectID, zone, opr.Name, state+"ing")
 	case "RESTART":
 		opr, err := service.Instances.Reset(projectID, zone, instanceName).Do()
 		if err != nil {
 			return err
 		}
-		return waitVMOperation(service, projectID, zone, opr.Name, state+"ing")
+		return waitZoneOperation(service, projectID, zone, opr.Name, state+"ing")
 
 	}
 
 	return nil
 }
 
-func UpdateInstance() {
+func UpdateBootDiskSize(service *compute.Service, projectID, zone, instanceName string, newDiskSizeGb int64) error {
+	fmt.Printf("Updating boot disk size for instance %s in project %s\n", instanceName, projectID)
 
+	// Resize the boot disk
+	op, err := service.Disks.Resize(projectID, zone, instanceName, &compute.DisksResizeRequest{
+		SizeGb: newDiskSizeGb,
+	}).Do()
+	if err != nil {
+		return fmt.Errorf("failed to resize boot disk: %v", err)
+	}
+
+	if err := waitZoneOperation(service, projectID, zone, op.Name, "resizing boot disk"); err != nil {
+		return err
+	}
+
+	fmt.Printf("Boot disk for instance %s updated successfully!\n", instanceName)
+	return nil
 }
 
-func SomeMultiplier(data int) {
-	data *= data
-	fmt.Println("Print the number square", data)
+func UpdateMachineType(service *compute.Service, projectID, zone, instanceName, machineType string) error {
+	fmt.Printf("Updating machine type for instance %s in project %s\n", instanceName, projectID)
+
+	// Update machine type
+	op, err := service.Instances.SetMachineType(projectID, zone, instanceName, &compute.InstancesSetMachineTypeRequest{
+		MachineType: fmt.Sprintf("projects/%s/zones/%s/machineTypes/%s", projectID, zone, machineType),
+	}).Do()
+	if err != nil {
+		return fmt.Errorf("failed to update machine type: %v", err)
+	}
+
+	// Wait for the operation to complete
+	if err := waitZoneOperation(service, projectID, zone, op.Name, "updating machine type"); err != nil {
+		return err
+	}
+
+	fmt.Printf("Machine type for instance %s updated successfully!\n", instanceName)
+	return nil
+}
+
+// UpdateNetworkTags updates the network tags for the specified instance in a project and zone.
+func UpdateNetworkTags(service *compute.Service, projectID, zone, instanceName string, networkTags []string) error {
+	fmt.Printf("Updating network tags for instance %s in project %s\n", instanceName, projectID)
+
+	// Get the current instance details to obtain the current fingerprint of the network tags.
+	instance, err := service.Instances.Get(projectID, zone, instanceName).Do()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve instance details: %v", err)
+	}
+
+	// Retrieve the current fingerprint of the network tags.
+	currentFingerprint := instance.Tags.Fingerprint
+
+	// Update network tags with the latest fingerprint.
+	update := &compute.Tags{
+		Items:       networkTags,
+		Fingerprint: currentFingerprint,
+	}
+
+	// Perform the update.
+	op, err := service.Instances.SetTags(projectID, zone, instanceName, update).Do()
+	if err != nil {
+		// If the error is due to the fingerprint mismatch, retry the operation.
+		if isFingerprintMismatch(err) {
+			return retryUpdateNetworkTags(service, projectID, zone, instanceName, networkTags, currentFingerprint)
+		}
+		return fmt.Errorf("failed to update network tags: %v", err)
+	}
+
+	// Wait for the operation to complete.
+	if err := waitZoneOperation(service, projectID, zone, op.Name, "updating network tags"); err != nil {
+		return err
+	}
+
+	fmt.Printf("Network tags for instance %s updated successfully!\n", instanceName)
+	return nil
+}
+
+// isFingerprintMismatch checks whether the error is a fingerprint mismatch error.
+func isFingerprintMismatch(err error) bool {
+	apiErr, ok := err.(*googleapi.Error)
+	return ok && apiErr.Code == 412 && apiErr.Errors[0].Reason == "conditionNotMet"
+}
+
+// retryUpdateNetworkTags retries the update operation with the latest fingerprint.
+func retryUpdateNetworkTags(service *compute.Service, projectID, zone, instanceName string, networkTags []string, currentFingerprint string) error {
+	// Retry the update operation with the latest fingerprint.
+	update := &compute.Tags{
+		Items:       networkTags,
+		Fingerprint: currentFingerprint,
+	}
+
+	op, err := service.Instances.SetTags(projectID, zone, instanceName, update).Do()
+	if err != nil {
+		return fmt.Errorf("failed to retry update network tags: %v", err)
+	}
+
+	// Wait for the operation to complete.
+	if err := waitZoneOperation(service, projectID, zone, op.Name, "retrying update of network tags"); err != nil {
+		return err
+	}
+
+	fmt.Printf("Network tags for instance %s updated successfully after retry!\n", instanceName)
+	return nil
 }

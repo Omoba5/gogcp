@@ -29,7 +29,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	doAction := 3
+	doAction := 6
 
 	ctx := context.Background()
 	service, _ := newComputeService(ctx)
@@ -75,8 +75,43 @@ func main() {
 		}
 
 	case 4:
-		// Update Instance
+		// Update Instance Disk
+		instanceName := "cims-ssh"
+		err := resources.UpdateBootDiskSize(service, projectID, zone, instanceName, 21)
+		if err != nil {
+			log.Fatalf("Failed to update instance: %v", err)
+		}
 
+	case 5:
+		// Update Instance Machine Type
+		instanceName := "cims-ssh"
+
+		// First stop the instance
+		err := resources.ChangeInstanceState(service, projectID, zone, instanceName, "STOP")
+		if err != nil {
+			log.Fatalf("Failed to STOP instance: %v", err)
+		}
+
+		// Change the instance tyoe
+		err2 := resources.UpdateMachineType(service, projectID, zone, instanceName, "e2-small")
+		if err2 != nil {
+			log.Fatalf("Failed to START instance: %v", err)
+		}
+
+		// Start the instance after modifying it.
+		err3 := resources.ChangeInstanceState(service, projectID, zone, instanceName, "START")
+		if err3 != nil {
+			log.Fatalf("Failed to START instance: %v", err)
+		}
+
+	case 6:
+		// Modify Network Tags
+		instanceName := "cims-ssh"
+		networkTags := []string{"http-server", "something-nice"}
+		err := resources.UpdateNetworkTags(service, projectID, zone, instanceName, networkTags)
+		if err != nil {
+			log.Fatalf("Failed to modify instance's Network Tags: %v", err)
+		}
 	}
 
 }

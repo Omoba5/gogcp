@@ -8,7 +8,7 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-func waitVMOperation(service *compute.Service, projectID, zone, operationName string, action string) error {
+func waitZoneOperation(service *compute.Service, projectID, zone, operationName string, action string) error {
 	for {
 		// Check operation status
 		op, err := service.ZoneOperations.Get(projectID, zone, operationName).Do()
@@ -18,7 +18,7 @@ func waitVMOperation(service *compute.Service, projectID, zone, operationName st
 		if op.Status == "DONE" {
 			break
 		}
-		fmt.Printf("Waiting more 10 secs for %s instance\n", action)
+		fmt.Printf("Waiting more 10 secs for %s operation\n", action)
 		time.Sleep(10 * time.Second)
 
 		fmt.Println("DONE!")
@@ -26,7 +26,7 @@ func waitVMOperation(service *compute.Service, projectID, zone, operationName st
 	return nil
 }
 
-func waitFWOperation(service *compute.Service, projectID, operationName string, action string) error {
+func waitGlobalOperation(service *compute.Service, projectID, operationName string, action string) error {
 	for {
 		// Check operation status
 		op, err := service.GlobalOperations.Get(projectID, operationName).Do()
