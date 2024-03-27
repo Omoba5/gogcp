@@ -20,6 +20,8 @@ func waitVMOperation(service *compute.Service, projectID, zone, operationName st
 		}
 		fmt.Printf("Waiting more 10 secs for %s instance\n", action)
 		time.Sleep(10 * time.Second)
+
+		fmt.Println("DONE!")
 	}
 	return nil
 }
@@ -36,6 +38,8 @@ func waitFWOperation(service *compute.Service, projectID, operationName string, 
 		}
 		fmt.Printf("Waiting more 10 secs for %s operation\n", action)
 		time.Sleep(10 * time.Second)
+
+		fmt.Println("DONE!")
 	}
 	return nil
 }

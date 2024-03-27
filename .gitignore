@@ -1,2 +1,5 @@
 # Credential Path
 .env
+
+# Test file for Json output
+file.txt

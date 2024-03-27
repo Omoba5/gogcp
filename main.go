@@ -29,31 +29,54 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
+	doAction := 3
+
 	ctx := context.Background()
 	service, _ := newComputeService(ctx)
 
 	projectID := os.Getenv("projectID")
 	instanceNameTemplate := "test-instance-%d"
 	zone := "us-central1-a"
-	// machineType := "e2-small"
+	machineType := "e2-small"
 
-	// //We can use go routines to create instances in parallel
-	// for i := 0; i < 2; i++ {
-	// 	instanceName := fmt.Sprintf(instanceNameTemplate, i)
-	// 	err := resources.CreateInstance(service, projectID, instanceName, zone, machineType)
-	// 	if err != nil {
-	// 		log.Fatalf("Failed to create instance: %v", err)
-	// 	}
-	// }
+	switch doAction {
+	case 0:
+		// Get Instance list
+		instances, err := resources.GetInstances(service, projectID)
+		if err != nil {
+			log.Fatalf("Failed to get instances: %v", err)
+		}
 
-	//We can use go routines to create instances in parallel
-	for i := 0; i < 2; i++ {
-		instanceName := fmt.Sprintf(instanceNameTemplate, i)
+		// Print the details of each instance
+		fmt.Println(instances[0])
+
+	case 1:
+		// Create Instances
+		instanceName := instanceNameTemplate
+		err := resources.CreateInstance(service, projectID, instanceName, zone, machineType)
+		if err != nil {
+			log.Fatalf("Failed to create instance: %v", err)
+		}
+
+	case 2:
+		// Destroy Instances
+		instanceName := "target-ssh"
 		err := resources.DeleteInstance(service, projectID, instanceName, zone)
 		if err != nil {
 			log.Fatalf("Failed to delete instance: %v", err)
 		}
+
+	case 3:
+		// Change Instance state
+		instanceName := "cims-ssh"
+		err := resources.ChangeInstanceState(service, projectID, zone, instanceName, "START")
+		if err != nil {
+			log.Fatalf("Failed to START instance: %v", err)
+		}
+
+	case 4:
+		// Update Instance
+
 	}
 
-	resources.SomeMultiplier(23)
 }
