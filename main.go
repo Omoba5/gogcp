@@ -29,7 +29,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	doAction := 6
+	doAction := 10
 
 	ctx := context.Background()
 	service, _ := newComputeService(ctx)
@@ -111,6 +111,62 @@ func main() {
 		err := resources.UpdateNetworkTags(service, projectID, zone, instanceName, networkTags)
 		if err != nil {
 			log.Fatalf("Failed to modify instance's Network Tags: %v", err)
+		}
+
+	case 7:
+		// Create Firewall Rule
+		firewallName := "veryhot"
+		firewallPortMap := map[string][]string{
+			"tcp": {"80", "8080", "443"},
+		}
+		firewallTargets := []string{"http-server"}
+
+		err := resources.CreateFirewallRule(service, projectID, firewallName, firewallPortMap, firewallTargets)
+		if err != nil {
+			log.Fatalf("Failed to create firewall rule: %v", err)
+		}
+
+	case 8:
+		// Modify Firewall Target tags
+		firewallName := "veryhot"
+		firewallTargets := []string{"http-server", "someexperiment"}
+
+		err := resources.UpdateFirewallTargetTags(service, projectID, firewallName, firewallTargets)
+		if err != nil {
+			log.Fatalf("Failed to update firewall rule: %v", err)
+		}
+
+	case 9:
+		// Modify Firewall Ports
+		firewallName := "veryhot"
+		firewallPortMap := map[string][]string{
+			"tcp": {"80", "8080", "443"},
+			//		"udp": {"90"},
+		}
+
+		err := resources.UpdateFirewallPorts(service, projectID, firewallName, firewallPortMap)
+		if err != nil {
+			log.Fatalf("Failed to update firewall rule: %v", err)
+		}
+
+	case 10:
+		// Modify Firewall Source Ranges
+		firewallName := "veryhot"
+		firewallSources := []string{"192.7.0.0/24", "196.55.5.78"}
+
+		err := resources.UpdateFirewallSourceRanges(service, projectID, firewallName, firewallSources)
+		if err != nil {
+			log.Fatalf("Failed to update firewall rule: %v", err)
+		}
+
+	case 11:
+		// Delete Firewall Rule
+
+		firewallName := "veryhot"
+
+		err := resources.DeleteFirewallRule(service, projectID, firewallName)
+		if err != nil {
+			log.Fatalf("Failed to delete firewall rule: %v", err)
 		}
 	}
 
