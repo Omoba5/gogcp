@@ -29,7 +29,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	doAction := 10
+	doAction := 13
 
 	ctx := context.Background()
 	service, _ := newComputeService(ctx)
@@ -167,6 +167,24 @@ func main() {
 		err := resources.DeleteFirewallRule(service, projectID, firewallName)
 		if err != nil {
 			log.Fatalf("Failed to delete firewall rule: %v", err)
+		}
+
+	case 12:
+		// Create Network
+		networkName := "coolname2"
+
+		err := resources.CreateNetwork(service, projectID, networkName)
+		if err != nil {
+			log.Fatalf("Failed to Create network: %v", err)
+		}
+
+	case 13:
+		// Delete Network
+		networkName := "coolname2"
+
+		err := resources.DeleteNetwork(service, projectID, networkName)
+		if err != nil {
+			log.Fatalf("Failed to Create network: %v", err)
 		}
 	}
 
