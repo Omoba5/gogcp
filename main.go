@@ -29,13 +29,13 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	doAction := 13
+	doAction := 2
 
 	ctx := context.Background()
 	service, _ := newComputeService(ctx)
 
 	projectID := os.Getenv("projectID")
-	instanceNameTemplate := "test-instance-%d"
+	instanceNameTemplate := "test-instance-1"
 	zone := "us-central1-a"
 	machineType := "e2-small"
 
@@ -53,14 +53,16 @@ func main() {
 	case 1:
 		// Create Instances
 		instanceName := instanceNameTemplate
-		err := resources.CreateInstance(service, projectID, instanceName, zone, machineType)
+		username := "coolname"
+		password := "bigsecret"
+		err := resources.CreateInstance(service, projectID, instanceName, zone, machineType, username, password)
 		if err != nil {
 			log.Fatalf("Failed to create instance: %v", err)
 		}
 
 	case 2:
 		// Destroy Instances
-		instanceName := "target-ssh"
+		instanceName := instanceNameTemplate
 		err := resources.DeleteInstance(service, projectID, instanceName, zone)
 		if err != nil {
 			log.Fatalf("Failed to delete instance: %v", err)

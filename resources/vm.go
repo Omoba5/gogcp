@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
@@ -35,8 +36,15 @@ func GetInstances(service *compute.Service, projectID string) ([]string, error) 
 	return instancelist, nil
 }
 
-func CreateInstance(service *compute.Service, projectID, instanceName, zone, machineType string) error {
+func CreateInstance(service *compute.Service, projectID, instanceName, zone, machineType, username, password string) error {
 	fmt.Printf("Creating instance %s in project %s\n", instanceName, projectID)
+
+	// Define the startup script
+	startupScript := fmt.Sprintf(`#!/bin/bash
+useradd -m -s /bin/bash %s
+echo "%s:%s" | chpasswd
+sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+systemctl reload sshd`, username, username, password)
 
 	// Create an instance resource object with the instance details
 	instance := &compute.Instance{
@@ -62,6 +70,14 @@ func CreateInstance(service *compute.Service, projectID, instanceName, zone, mac
 				Network: "global/networks/default",
 			},
 		},
+		Metadata: &compute.Metadata{
+			Items: []*compute.MetadataItems{
+				{
+					Key:   "startup-script",
+					Value: &startupScript,
+				},
+			},
+		},
 	}
 
 	// Call the Instances.Insert method to create the instance
@@ -72,6 +88,16 @@ func CreateInstance(service *compute.Service, projectID, instanceName, zone, mac
 
 	waitZoneOperation(service, projectID, zone, op.Name, "creating")
 	fmt.Printf("Instance %s created successfully!\n", instanceName)
+
+	// Wait 1- seconds before removing the startup script
+	time.Sleep(10 * time.Second)
+
+	// Remove startup script from instance
+	err2 := removeStartupScript(service, projectID, instanceName, zone)
+	if err2 != nil {
+		return fmt.Errorf("failed to remove start up script from instance: %v", err)
+	}
+
 	return nil
 }
 
@@ -221,5 +247,32 @@ func retryUpdateNetworkTags(service *compute.Service, projectID, zone, instanceN
 	}
 
 	fmt.Printf("Network tags for instance %s updated successfully after retry!\n", instanceName)
+	return nil
+}
+
+// RemoveStartupScript removes the startup script from the instance's metadata.
+func removeStartupScript(service *compute.Service, projectID, instanceName, zone string) error {
+	// Get the current instance metadata
+	instance, err := service.Instances.Get(projectID, zone, instanceName).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get instance metadata: %v", err)
+	}
+
+	// Remove the startup-script item from metadata
+	var updatedItems []*compute.MetadataItems
+	for _, item := range instance.Metadata.Items {
+		if item.Key != "startup-script" {
+			updatedItems = append(updatedItems, item)
+		}
+	}
+
+	// Update the instance metadata to remove the startup script
+	instance.Metadata.Items = updatedItems
+	_, err = service.Instances.SetMetadata(projectID, zone, instanceName, instance.Metadata).Do()
+	if err != nil {
+		return fmt.Errorf("failed to update instance metadata: %v", err)
+	}
+
+	fmt.Println("Startup script removed successfully!")
 	return nil
 }
