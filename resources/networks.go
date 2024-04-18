@@ -53,6 +53,26 @@ func CreateNetwork(service *compute.Service, projectID, networkName string) erro
 func DeleteNetwork(service *compute.Service, projectID, networkName string) error {
 	fmt.Printf("Deleting network %s from project %s\n", networkName, projectID)
 
+	// List all subnets in the network
+	subnets, err := service.Subnetworks.List(projectID, "us-west1").Filter(fmt.Sprintf("network eq '.*%s'", networkName)).Do()
+	if err != nil {
+		return fmt.Errorf("failed to list subnets for network %s: %v", networkName, err)
+	}
+
+	// Print the list of subnets for debugging
+	fmt.Printf("Subnets associated with network %s:\n", networkName)
+	for _, subnet := range subnets.Items {
+		fmt.Printf("  %s\n", subnet.Name)
+	}
+
+	// Delete each subnet
+	for _, subnet := range subnets.Items {
+		fmt.Println("Does this loop even run at all???")
+		if err := DeleteSubnet(service, projectID, "us-west1", subnet.Name); err != nil {
+			return err
+		}
+	}
+
 	// Perform the network deletion
 	op, err := service.Networks.Delete(projectID, networkName).Do()
 	if err != nil {
@@ -65,5 +85,24 @@ func DeleteNetwork(service *compute.Service, projectID, networkName string) erro
 	}
 
 	fmt.Printf("Network %s deleted successfully!\n", networkName)
+	return nil
+}
+
+// DeleteSubnet deletes the subnet with the specified name from the specified project and region.
+func DeleteSubnet(service *compute.Service, projectID, region, subnetName string) error {
+	fmt.Printf("Deleting subnet %s from project %s, region %s\n", subnetName, projectID, region)
+
+	// Perform the subnet deletion
+	op, err := service.Subnetworks.Delete(projectID, region, subnetName).Do()
+	if err != nil {
+		return fmt.Errorf("failed to delete subnet: %v", err)
+	}
+
+	// Wait for the operation to complete
+	if err := waitRegionOperation(service, projectID, region, op.Name, "deleting subnet"); err != nil {
+		return err
+	}
+
+	fmt.Printf("Subnet %s deleted successfully!\n", subnetName)
 	return nil
 }

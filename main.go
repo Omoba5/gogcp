@@ -29,7 +29,8 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	doAction := 2
+	// Number of the action to be performed
+	doAction := 13
 
 	ctx := context.Background()
 	service, _ := newComputeService(ctx)
@@ -53,8 +54,8 @@ func main() {
 	case 1:
 		// Create Instances
 		instanceName := instanceNameTemplate
-		username := "coolname"
-		password := "bigsecret"
+		username := "anothername"
+		password := "biggersecret"
 		err := resources.CreateInstance(service, projectID, instanceName, zone, machineType, username, password)
 		if err != nil {
 			log.Fatalf("Failed to create instance: %v", err)
